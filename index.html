@@ -159,7 +159,7 @@ body{
 
 /* Task list */
 ul#list{ margin:0; padding:0; list-style:none; text-align:left; width:100%; }
-.item{ position:relative; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px dashed var(--border); border-radius:12px; transition:box-shadow .2s, filter .2s, background .2s; background:transparent; overflow: hidden; }
+.item{ position:relative; display:grid; grid-template-columns:auto 1fr auto; align-items:baseline; gap:12px; padding:14px 16px; border-bottom:1px dashed var(--border); border-radius:12px; transition:box-shadow .2s, filter .2s, background .2s; background:transparent; overflow: hidden; }
 .item:last-child{ border-bottom:none; }
 .item[draggable="true"]{ cursor:grab; }
 .item.dragging{ opacity:.6; }
@@ -799,7 +799,7 @@ button.ctrl.clear-list-btn-red {
   <div class="menu-panel glass" id="menuPanel" aria-hidden="true">
 
     <div class="section" id="secCheckmarkAnims">
-        <details>
+        <details id="detailsCheckmarkAnims">
             <summary>
                 Checkmark Animations <span class="hint">bubbles, wind & presets</span>
             </summary>
@@ -983,7 +983,7 @@ button.ctrl.clear-list-btn-red {
     </div>
 
     <div class="section" id="secAppearance">
-      <details>
+      <details id="detailsAppearance">
         <summary>
           Appearance <span class="hint">UI, background & animations</span>
         </summary>
@@ -1243,7 +1243,7 @@ button.ctrl.clear-list-btn-red {
     </div>
 
     <div class="section" id="secUtility">
-        <details>
+        <details id="detailsUtility">
             <summary>
                 Utility <span class="hint">counters, clock & factory reset</span>
             </summary>
@@ -1298,7 +1298,7 @@ button.ctrl.clear-list-btn-red {
                 </div>
                 <div class="hr"></div>
                 <div class="sub-section" id="secWorkflowStages" style="display: none;">
-                    <details>
+                    <details id="detailsWorkflowStages">
                         <summary>Customize Workflow Stages</summary>
                         <div class="content stack">
                             <div id="workflowStagesList" class="stack"></div>
@@ -1615,7 +1615,7 @@ button.ctrl.clear-list-btn-red {
         reader.onload = (event) => {
             pdfLogoData = event.target.result;
             pdfClearLogoBtn.style.display = 'block';
-            generatePdfPreview();
+            generatePdfPreviewIfVisible();
         };
         reader.readAsDataURL(file);
     }
@@ -1625,20 +1625,26 @@ button.ctrl.clear-list-btn-red {
     pdfLogoData = null;
     pdfLogoUpload.value = ''; // Clear the file input
     pdfClearLogoBtn.style.display = 'none';
-    generatePdfPreview();
+    generatePdfPreviewIfVisible();
   });
 
-  pdfHeader.addEventListener('input', generatePdfPreview);
-  pdfAuthor.addEventListener('input', generatePdfPreview);
-  pdfTheme.addEventListener('change', generatePdfPreview);
-  pdfAccentColor.addEventListener('change', generatePdfPreview);
-  pdfIncludeDate.addEventListener('change', generatePdfPreview);
-  pdfIncludeTime.addEventListener('change', generatePdfPreview);
-  pdfCustomTime.addEventListener('input', generatePdfPreview);
-  pdfIncludeAuthor.addEventListener('change', generatePdfPreview);
-  pdfIncludeCheckboxes.addEventListener('change', generatePdfPreview);
+  pdfHeader.addEventListener('input', generatePdfPreviewIfVisible);
+  pdfAuthor.addEventListener('input', generatePdfPreviewIfVisible);
+  pdfTheme.addEventListener('change', generatePdfPreviewIfVisible);
+  pdfAccentColor.addEventListener('change', generatePdfPreviewIfVisible);
+  pdfIncludeDate.addEventListener('change', generatePdfPreviewIfVisible);
+  pdfIncludeTime.addEventListener('change', generatePdfPreviewIfVisible);
+  pdfCustomTime.addEventListener('input', generatePdfPreviewIfVisible);
+  pdfIncludeAuthor.addEventListener('change', generatePdfPreviewIfVisible);
+  pdfIncludeCheckboxes.addEventListener('change', generatePdfPreviewIfVisible);
   downloadPdfBtn.addEventListener('click', downloadPdf);
 
+
+  function generatePdfPreviewIfVisible() {
+    if (pdfPreviewContainer.style.display === 'block') {
+      generatePdfPreview();
+    }
+  }
 
   function generatePdfPreview() {
     const currentList = lists[activeListIndex];
@@ -3688,12 +3694,18 @@ button.ctrl.clear-list-btn-red {
   [gradientAngle, gradientSpread].forEach(el => el.addEventListener('input', () => { if (el === gradientAngle && !gradientSpinToggle.checked) { gradientAnimationAngle = parseFloat(gradientAngle.value); } applyColorWallpaper(); updatePercentages(); saveData(); }));
   gradientSpinToggle.addEventListener('change', ()=>{ if(gradientSpinToggle.checked) { gradientAnimationAngle = parseFloat(gradientAngle.value); } else { gradientAngle.value = Math.round(gradientAnimationAngle); updatePercentages(); } gradientSpinControls.style.display = gradientSpinToggle.checked ? 'flex' : 'none'; saveData(); });
   enableClock.addEventListener('change', ()=>{ applyClockSettings(); saveData(); });
-  [enableNaturalSlide, enableAmbiance, containParticles, enableCustomBackground, enableScanLine].forEach(el => el.addEventListener('change', ()=>{ 
+  [enableNaturalSlide, enableAmbiance, containParticles, enableCustomBackground, enableScanLine, document.getElementById('keepMenuExpanded')].forEach(el => {
+    if (!el) return;
+    el.addEventListener('change', ()=>{
+      if (el.id === 'keepMenuExpanded' && !el.checked) {
+        document.querySelectorAll('.menu-panel details').forEach(d => d.open = false);
+      }
       if (el === enableAmbiance) applyAmbianceSettings(); 
       if (el === enableCustomBackground) syncCustomBackgroundVisibility();
       if (el === enableScanLine) syncScanAngleVisibility();
       saveData(); 
-  }));
+    })
+  });
   simpleModeToggle.addEventListener('change', () => { const hasLaunched = localStorage.getItem('mysparklist.hasLaunchedBefore') === 'true'; updateSectionVisibility(hasLaunched); applySimplifiedMode(simpleModeToggle.checked); saveData(); });
   uiStyleResetBtn.addEventListener('click', ()=>{ resetUiStyleToDefault(); saveData(); });
   resetAnimBtn.addEventListener('click', ()=>{ resetAnimationToDefault(); saveData(); });
