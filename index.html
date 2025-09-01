@@ -806,7 +806,7 @@ button.ctrl.clear-list-btn-red {
             <div class="content">
                 <div class="sub-section-wrapper">
                     <div class="sub-section">
-                        <details id="secAnimStyle" open>
+                        <details id="secAnimStyle">
                             <summary>
                                 Animation Style <span class="hint">bubbles, splash, fireworks & more</span>
                             </summary>
@@ -1021,6 +1021,10 @@ button.ctrl.clear-list-btn-red {
                     </div>
                     <div class="row">
                       <button id="uiStyleResetBtn" type="button" title="Reset UI Style and Opacity to default">Reset UI Style</button>
+                    </div>
+                    <div class="hr"></div>
+                    <div class="row">
+                       <label class="helper"><input type="checkbox" id="keepMenuExpanded"> Keep Menu Sections Expanded</label>
                     </div>
                     <div class="hr"></div>
                     <div class="stack">
@@ -1294,7 +1298,7 @@ button.ctrl.clear-list-btn-red {
                 </div>
                 <div class="hr"></div>
                 <div class="sub-section" id="secWorkflowStages" style="display: none;">
-                    <details open>
+                    <details>
                         <summary>Customize Workflow Stages</summary>
                         <div class="content stack">
                             <div id="workflowStagesList" class="stack"></div>
@@ -1310,7 +1314,7 @@ button.ctrl.clear-list-btn-red {
                 </div>
                 <div class="hr"></div>
                 <div class="sub-section">
-                    <details id="secPdfExport" open>
+                    <details id="secPdfExport">
                         <summary>PDF Export</summary>
                         <div class="content stack">
                             <div class="row">
@@ -1353,7 +1357,7 @@ button.ctrl.clear-list-btn-red {
                                 <label class="helper"><input type="checkbox" id="pdfIncludeAuthor" checked> Include Author</label>
                                 <label class="helper"><input type="checkbox" id="pdfIncludeCheckboxes"> Include Checkboxes</label>
                             </div>
-                            <div class="pdf-preview-container">
+                            <div class="pdf-preview-container" style="display: none;">
                                 <iframe id="pdfPreview" style="width: 100%; height: 250px;"></iframe>
                             </div>
                             <div class="row" style="justify-content: space-between;">
@@ -1595,7 +1599,15 @@ button.ctrl.clear-list-btn-red {
   const showPreviewBtn = document.getElementById('showPreviewBtn');
 
   // PDF Export Listeners
-  showPreviewBtn.addEventListener('click', generatePdfPreview);
+  const pdfPreviewContainer = document.querySelector('.pdf-preview-container');
+  showPreviewBtn.addEventListener('click', () => {
+    const isVisible = pdfPreviewContainer.style.display === 'block';
+    pdfPreviewContainer.style.display = isVisible ? 'none' : 'block';
+    showPreviewBtn.textContent = isVisible ? 'Show Preview' : 'Hide Preview';
+    if (!isVisible) {
+      generatePdfPreview();
+    }
+  });
   pdfLogoUpload.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -1717,7 +1729,7 @@ button.ctrl.clear-list-btn-red {
         headStyles: headStyles,
         styles: { valign: 'middle' },
         columnStyles: {
-            text: { cellPadding: { left: 8 } }
+            text: { cellPadding: { left: pdfIncludeCheckboxes.checked ? 8 : 2 } }
         },
         didDrawCell: function(data) {
             if (data.section === 'body' && data.column.dataKey === 'text' && pdfIncludeCheckboxes.checked) {
@@ -1869,7 +1881,7 @@ button.ctrl.clear-list-btn-red {
           headStyles: headStyles,
           styles: { valign: 'middle' },
           columnStyles: {
-              text: { cellPadding: { left: 8 } }
+              text: { cellPadding: { left: pdfIncludeCheckboxes.checked ? 8 : 2 } }
           },
           didDrawCell: function(data) {
               if (data.section === 'body' && data.column.dataKey === 'text' && pdfIncludeCheckboxes.checked) {
@@ -2133,12 +2145,18 @@ button.ctrl.clear-list-btn-red {
     store('simpleMode', simpleModeToggle.checked);
     store('hasLaunchedBefore', 'true');
     store('hideWelcomeBack', hideWelcomeBack.checked);
+    store('keepMenuExpanded', document.getElementById('keepMenuExpanded')?.checked);
     localStorage.setItem('mysparklist.savedPatterns', JSON.stringify(savedPatterns));
 
+    const keepMenuExpanded = document.getElementById('keepMenuExpanded')?.checked;
     const detailsElements = document.querySelectorAll('.menu-panel details');
     detailsElements.forEach(el => {
         if (el.id) {
-            store(`secOpen.${el.id}`, el.open);
+            if (keepMenuExpanded) {
+                store(`secOpen.${el.id}`, el.open);
+            } else {
+                localStorage.removeItem('mysparklist.secOpen.' + el.id);
+            }
         }
     });
   }
@@ -2185,12 +2203,21 @@ button.ctrl.clear-list-btn-red {
             const parsedData = JSON.parse(decodedString);
 
             if (parsedData && Array.isArray(parsedData.items)) {
+                const listType = parsedData.type || "General Tasks";
+                let initialStatus = 'pending';
+                if (listType === 'Workflow' && parsedData.stages && parsedData.stages.length > 0) {
+                    initialStatus = parsedData.stages[0];
+                }
+
+                // Set all items to the initial status
+                parsedData.items.forEach(item => item.status = initialStatus);
+
                 const newList = {
                     name: (parsedData.name || "Shared List") + " 🔗",
-                    type: parsedData.type || "General Tasks",
+                    type: listType,
                     items: parsedData.items,
                     color: null,
-                    stages: parsedData.stages // Add stages from shared data
+                    stages: parsedData.stages
                 };
                 
                 // Replace all existing lists with the new shared one.
@@ -2314,10 +2341,19 @@ button.ctrl.clear-list-btn-red {
     hideWelcomeBack.checked = shouldHideWelcomeBack;
     savedPatterns = JSON.parse(get('savedPatterns', '[]'));
     
+    const keepMenuExpanded = get('keepMenuExpanded', 'false') === 'true';
+    if(document.getElementById('keepMenuExpanded')) {
+      document.getElementById('keepMenuExpanded').checked = keepMenuExpanded;
+    }
+
     const detailsElements = document.querySelectorAll('.menu-panel details');
     detailsElements.forEach(el => {
         if (el.id) {
-            el.open = (get(`secOpen.${el.id}`, el.hasAttribute('open') ? 'true' : 'false') === 'true');
+            if (keepMenuExpanded) {
+                 el.open = (get(`secOpen.${el.id}`, 'false') === 'true');
+            } else {
+                el.open = false;
+            }
         }
     });
 
