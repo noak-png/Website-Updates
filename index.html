@@ -219,6 +219,10 @@ ul#list{ margin:0; padding:0; list-style:none; text-align:left; width:100%; }
     0% { transform: translateY(-100%) scaleY(1.5); }
     100% { transform: translateY(100%) scaleY(0); opacity: 0; }
 }
+.item.scan-effect-progress::after {
+    animation: scanLine var(--completion-duration) forwards cubic-bezier(.16,1,.3,1);
+    background: linear-gradient(var(--scan-line-angle), transparent 0%, var(--accent) 50%, transparent 100%);
+}
 
 
 /* Control bar */
@@ -1685,6 +1689,7 @@ button.ctrl.clear-list-btn-red {
         body: tableData,
         theme: theme,
         headStyles: headStyles,
+        styles: { valign: 'middle' },
         columnStyles: {
             text: { cellPadding: { left: 8 } }
         },
@@ -1830,6 +1835,7 @@ button.ctrl.clear-list-btn-red {
           body: tableData,
           theme: theme,
           headStyles: headStyles,
+          styles: { valign: 'middle' },
           columnStyles: {
               text: { cellPadding: { left: 8 } }
           },
@@ -2579,7 +2585,7 @@ button.ctrl.clear-list-btn-red {
     const badge = li.querySelector('.badge');
     const text = li.querySelector('.text');
 
-    li.classList.remove('done', 'in-progress', 'pulse', 'warn', 'scan-effect-done', 'scan-effect-warn');
+    li.classList.remove('done', 'in-progress', 'pulse', 'warn', 'scan-effect-done', 'scan-effect-warn', 'scan-effect-progress');
     text.style.textDecoration = 'none';
     
     let isComplete = false;
@@ -2663,7 +2669,12 @@ button.ctrl.clear-list-btn-red {
         if (isProgressing && !wasComplete) {
             // Scan line on any forward step (including the last one)
             if (enableScanLine.checked) {
-                li.classList.add('scan-effect-done');
+                const isNowIntermediate = stageChange.isWorkflow && !isNowComplete;
+                if (isNowIntermediate) {
+                    li.classList.add('scan-effect-progress');
+                } else {
+                    li.classList.add('scan-effect-done');
+                }
             }
             // Big animation only on the final step
             if (isNowComplete) {
@@ -2740,6 +2751,12 @@ button.ctrl.clear-list-btn-red {
     menuPanel.style.display = open ? 'block' : 'none';
     menuPanel.setAttribute('aria-hidden', !open);
     menuBtn.setAttribute('aria-expanded', open);
+    if (open) {
+        const detailsElements = menuPanel.querySelectorAll('details');
+        detailsElements.forEach(el => {
+            el.open = false;
+        });
+    }
   }
 
   menuBtn.onclick = ()=>{ const isOpen = menuPanel.style.display==='block'; setMenu(!isOpen); };
