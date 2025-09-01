@@ -46,6 +46,8 @@
   --completion-ok-strong-color: #22c55e;
   --completion-danger-color: #ef4444;
   --completion-danger-strong-color: #f87171;
+  --completion-progress-color: #2563eb;
+  --completion-progress-strong-color: #3b82f6;
   --completion-glow-spread: 6px;
   --scan-line-angle: 180deg; /* Default scan angle */
 }
@@ -77,6 +79,8 @@
   --completion-ok-strong-color: #4ade80;
   --completion-danger-color: #f87171;
   --completion-danger-strong-color: #fecaca;
+  --completion-progress-color: #3b82f6;
+  --completion-progress-strong-color: #60a5fa;
 }
 
 /* ========== Global Layout ========== */
@@ -171,14 +175,14 @@ ul#list{ margin:0; padding:0; list-style:none; text-align:left; width:100%; }
 .item.done .badge{ border-color:var(--completion-ok-color); color:var(--completion-ok-color); }
 
 .item.in-progress {
-    box-shadow: inset 0 0 0 2px var(--accent);
+    box-shadow: inset 0 0 0 2px var(--completion-progress-color);
 }
 .item.in-progress .badge {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--completion-progress-color);
+    color: var(--completion-progress-color);
 }
 .item.in-progress input[type="checkbox"] {
-    accent-color: var(--accent);
+    accent-color: var(--completion-progress-color);
 }
 
 .remove{ background:transparent; border:1px solid var(--border); color:var(--danger); padding:6px 10px; border-radius:8px; cursor:pointer; transition:all .15s; }
@@ -218,6 +222,10 @@ ul#list{ margin:0; padding:0; list-style:none; text-align:left; width:100%; }
 @keyframes scanLineWarn {
     0% { transform: translateY(-100%) scaleY(1.5); }
     100% { transform: translateY(100%) scaleY(0); opacity: 0; }
+}
+.item.scan-effect-progress::after {
+    animation: scanLine var(--completion-duration) forwards cubic-bezier(.16,1,.3,1);
+    background: linear-gradient(var(--scan-line-angle), transparent 0%, var(--completion-progress-strong-color) 50%, transparent 100%);
 }
 
 
@@ -1041,6 +1049,10 @@ button.ctrl.clear-list-btn-red {
                         <label for="completionUncheckedColor" style="flex: 1;">Unchecked Color</label>
                         <input type="color" id="completionUncheckedColor" value="#ef4444">
                     </div>
+                    <div id="completionInProgressColorRow" class="row" style="display: none;">
+                        <label for="completionInProgressColor" style="flex: 1;">In Progress Color</label>
+                        <input type="color" id="completionInProgressColor" value="#2563eb">
+                    </div>
                     <div class="slider-row">
                       <label for="completionGlow">Glow Intensity</label>
                       <input type="range" id="completionGlow" min="4" max="12" value="6" />
@@ -1334,7 +1346,10 @@ button.ctrl.clear-list-btn-red {
                             </div>
                             <div class="stack">
                                 <label class="helper"><input type="checkbox" id="pdfIncludeDate" checked> Include Date</label>
-                                <label class="helper"><input type="checkbox" id="pdfIncludeTime" checked> Include Time</label>
+                                <div class="row">
+                                    <label for="pdfIncludeTime" class="helper" style="flex: 1;"><input type="checkbox" id="pdfIncludeTime" checked> Include Time</label>
+                                    <input type="text" id="pdfCustomTime" placeholder="auto" style="width: 100px; font-size: 12px;">
+                                </div>
                                 <label class="helper"><input type="checkbox" id="pdfIncludeAuthor" checked> Include Author</label>
                                 <label class="helper"><input type="checkbox" id="pdfIncludeCheckboxes"> Include Checkboxes</label>
                             </div>
@@ -1513,6 +1528,8 @@ button.ctrl.clear-list-btn-red {
   // Completion Effect Controls
   const completionCheckedColor = document.getElementById('completionCheckedColor');
   const completionUncheckedColor = document.getElementById('completionUncheckedColor');
+  const completionInProgressColor = document.getElementById('completionInProgressColor');
+  const completionInProgressColorRow = document.getElementById('completionInProgressColorRow');
   const completionGlow = document.getElementById('completionGlow');
   const completionSpeed = document.getElementById('completionSpeed');
   const completionResetBtn = document.getElementById('completionResetBtn');
@@ -1564,6 +1581,7 @@ button.ctrl.clear-list-btn-red {
   const pdfAccentColor = document.getElementById('pdfAccentColor');
   const pdfIncludeDate = document.getElementById('pdfIncludeDate');
   const pdfIncludeTime = document.getElementById('pdfIncludeTime');
+  const pdfCustomTime = document.getElementById('pdfCustomTime');
   const pdfIncludeAuthor = document.getElementById('pdfIncludeAuthor');
   const pdfIncludeCheckboxes = document.getElementById('pdfIncludeCheckboxes');
   const pdfLogoUpload = document.getElementById('pdfLogoUpload');
@@ -1599,6 +1617,7 @@ button.ctrl.clear-list-btn-red {
   pdfAccentColor.addEventListener('change', generatePdfPreview);
   pdfIncludeDate.addEventListener('change', generatePdfPreview);
   pdfIncludeTime.addEventListener('change', generatePdfPreview);
+  pdfCustomTime.addEventListener('input', generatePdfPreview);
   pdfIncludeAuthor.addEventListener('change', generatePdfPreview);
   pdfIncludeCheckboxes.addEventListener('change', generatePdfPreview);
   downloadPdfBtn.addEventListener('click', downloadPdf);
@@ -1660,14 +1679,20 @@ button.ctrl.clear-list-btn-red {
     doc.text(headerText, margin, 22, { maxWidth: logoRightEdge - margin });
     finalY = Math.max(finalY, 35);
 
-    let metaInfo = [];
-    if (includeDate) metaInfo.push(new Date().toLocaleDateString());
-    if (includeTime) metaInfo.push(new Date().toLocaleTimeString());
-    if (includeAuthor && authorText) metaInfo.push(`By: ${authorText}`);
+    const customTime = pdfCustomTime.value.trim();
+    let dateTimeInfo = [];
+    if (includeDate) dateTimeInfo.push(new Date().toLocaleDateString());
+    if (includeTime) dateTimeInfo.push(customTime || new Date().toLocaleTimeString());
 
-    if (metaInfo.length > 0) {
+    if (dateTimeInfo.length > 0) {
         doc.setFontSize(10);
-        doc.text(metaInfo.join(' | '), 14, finalY);
+        doc.text(dateTimeInfo.join('  |  '), margin, finalY);
+        finalY += 6;
+    }
+
+    if (includeAuthor && authorText) {
+        doc.setFontSize(10);
+        doc.text(`By: ${authorText}`, margin, finalY);
         finalY += 10;
     }
 
@@ -1805,14 +1830,20 @@ button.ctrl.clear-list-btn-red {
       doc.text(headerText, margin, 22, { maxWidth: logoRightEdge - margin });
       finalY = Math.max(finalY, 35);
 
-      let metaInfo = [];
-      if (includeDate) metaInfo.push(new Date().toLocaleDateString());
-      if (includeTime) metaInfo.push(new Date().toLocaleTimeString());
-      if (includeAuthor && authorText) metaInfo.push(`By: ${authorText}`);
+      const customTime = pdfCustomTime.value.trim();
+      let dateTimeInfo = [];
+      if (includeDate) dateTimeInfo.push(new Date().toLocaleDateString());
+      if (includeTime) dateTimeInfo.push(customTime || new Date().toLocaleTimeString());
 
-      if (metaInfo.length > 0) {
+      if (dateTimeInfo.length > 0) {
           doc.setFontSize(10);
-          doc.text(metaInfo.join(' | '), 14, finalY);
+          doc.text(dateTimeInfo.join('  |  '), margin, finalY);
+          finalY += 6;
+      }
+
+      if (includeAuthor && authorText) {
+          doc.setFontSize(10);
+          doc.text(`By: ${authorText}`, margin, finalY);
           finalY += 10;
       }
 
@@ -2070,6 +2101,7 @@ button.ctrl.clear-list-btn-red {
     store('uiStyle', uiStyleSelect.value);
     store('completionCheckedColor', completionCheckedColor.value);
     store('completionUncheckedColor', completionUncheckedColor.value);
+    store('completionInProgressColor', completionInProgressColor.value);
     store('completionGlow', completionGlow.value);
     store('completionSpeed', completionSpeed.value);
     store('enableCustomBackground', enableCustomBackground.checked);
@@ -2231,6 +2263,7 @@ button.ctrl.clear-list-btn-red {
     uiStyleSelect.value = get('uiStyle', 'graphite');
     completionCheckedColor.value = get('completionCheckedColor', '#22c55e');
     completionUncheckedColor.value = get('completionUncheckedColor', '#f87171');
+    completionInProgressColor.value = get('completionInProgressColor', '#3b82f6');
     completionGlow.value = get('completionGlow', '6');
     completionSpeed.value = get('completionSpeed', '900');
     enableCustomBackground.checked = (get('enableCustomBackground', 'true') === 'true');
@@ -2427,11 +2460,13 @@ button.ctrl.clear-list-btn-red {
       root.style.setProperty('--completion-duration', `${completionSpeed.value}ms`);
       root.style.setProperty('--completion-ok-color', okColor);
       root.style.setProperty('--completion-danger-color', dangerColor);
+      root.style.setProperty('--completion-progress-color', completionInProgressColor.value);
       root.style.setProperty('--completion-glow-spread', `${completionGlow.value}px`);
 
       // Generate stronger/lighter versions for glows
       const okRgb = hexToRgb(okColor);
       const dangerRgb = hexToRgb(dangerColor);
+      const progressRgb = hexToRgb(completionInProgressColor.value);
 
       if (okRgb) {
           const okStrong = rgbToHex(okRgb.r * 1.2, okRgb.g * 1.2, okRgb.b * 1.2);
@@ -2441,6 +2476,10 @@ button.ctrl.clear-list-btn-red {
           const dangerStrong = rgbToHex(dangerRgb.r * 1.2, dangerRgb.g * 1.2, dangerRgb.b * 1.2);
           root.style.setProperty('--completion-danger-strong-color', dangerStrong);
       }
+      if (progressRgb) {
+          const progressStrong = rgbToHex(progressRgb.r * 1.2, progressRgb.g * 1.2, progressRgb.b * 1.2);
+          root.style.setProperty('--completion-progress-strong-color', progressStrong);
+      }
       updatePercentages();
   }
 
@@ -2448,6 +2487,7 @@ button.ctrl.clear-list-btn-red {
       const isDark = document.documentElement.classList.contains('dark');
       completionCheckedColor.value = isDark ? '#22c55e' : '#16a34a';
       completionUncheckedColor.value = isDark ? '#f87171' : '#ef4444';
+      completionInProgressColor.value = isDark ? '#3b82f6' : '#2563eb';
       completionGlow.value = 6;
       completionSpeed.value = 900;
       enableScanLine.checked = false;
@@ -2661,9 +2701,14 @@ button.ctrl.clear-list-btn-red {
 
         // Handle forward progress
         if (isProgressing && !wasComplete) {
-            // Scan line on any forward step (including the last one)
             if (enableScanLine.checked) {
-                li.classList.add('scan-effect-done');
+                li.classList.remove('scan-effect-done', 'scan-effect-warn', 'scan-effect-progress');
+                void li.offsetWidth; // Trigger reflow to restart animation
+                if (isNowComplete) {
+                    li.classList.add('scan-effect-done');
+                } else {
+                    li.classList.add('scan-effect-progress');
+                }
             }
             // Big animation only on the final step
             if (isNowComplete) {
@@ -2673,11 +2718,13 @@ button.ctrl.clear-list-btn-red {
                 li.classList.add('pulse');
                 setTimeout(() => li.classList.remove('pulse'), parseInt(completionSpeed.value, 10) + 50);
             }
-        } 
+        }
         // Handle "un-checking" from a completed state
         else if (wasComplete && !isNowComplete) {
             li.classList.add('warn');
             if (enableScanLine.checked) {
+                li.classList.remove('scan-effect-done', 'scan-effect-warn', 'scan-effect-progress');
+                void li.offsetWidth; // Trigger reflow
                 li.classList.add('scan-effect-warn');
             }
             setTimeout(() => li.classList.remove('warn'), parseInt(completionSpeed.value, 10) + 50);
@@ -2822,7 +2869,7 @@ button.ctrl.clear-list-btn-red {
       wind: { enabled: enableWind.checked, pattern: windPattern.value, intensity: windIntensity.value, direction: windDirection.value },
       toggles: { animations: enableAnimations.checked, endless: enableEndless.checked, secCounter: enableSecCounter.checked, clickCounter: enableClickCounter.checked, naturalSlide: enableNaturalSlide.checked, enableScanLine: enableScanLine.checked, clock: enableClock.checked, ambiance: enableAmbiance.checked, customBackground: enableCustomBackground.checked },
       appearance: { glassOpacity: glassOpacity.value, glassBlur: glassBlurSlider.value, glassSaturation: glassSaturationSlider.value, glassBorder: glassBorderSlider.value, uiStyle: uiStyleSelect.value, dark: document.documentElement.classList.contains('dark'), backgroundType: backgroundType.value, wallpaperFit: wallpaperFit.value, colorWallpaperType: colorWallpaperType.value, wallpaperColor1: wallpaperColor1.value, wallpaperColor2: wallpaperColor2.value, wallpaperColor3: wallpaperColor3.value, gradientAngle: gradientAngle.value, gradientSpread: gradientSpread.value, gradientSpinEnabled: gradientSpinToggle.checked, gradientSpinSpeed: gradientSpinSpeed.value },
-      completion: { checkedColor: completionCheckedColor.value, uncheckedColor: completionUncheckedColor.value, glow: completionGlow.value, speed: completionSpeed.value, scanAngle: scanAngle.value },
+      completion: { checkedColor: completionCheckedColor.value, uncheckedColor: completionUncheckedColor.value, inProgressColor: completionInProgressColor.value, glow: completionGlow.value, speed: completionSpeed.value, scanAngle: scanAngle.value },
       ambiance: { effect: ambianceSelect.value, snowDensity: snowDensity.value, snowSize: snowSize.value, snowSpeed: snowSpeed.value, orbsDensity: orbsDensity.value, orbsSize: orbsSize.value, orbsSpeed: orbsSpeed.value, orbsColor: orbsColor.value, starfieldDensity: starfieldDensity.value, starfieldSize: starfieldSize.value, starfieldSpeed: starfieldSpeed.value, matrixDensity: matrixDensity.value, matrixSize: matrixSize.value, matrixSpeed: matrixSpeed.value, matrixColor: matrixColor.value },
       slideSpeed: slideSpeed.value,
       clock: { position: clockPosition.value, detail: clockDetail.value },
@@ -2871,6 +2918,7 @@ button.ctrl.clear-list-btn-red {
       if (s.completion) {
           completionCheckedColor.value = s.completion.checkedColor;
           completionUncheckedColor.value = s.completion.uncheckedColor;
+          completionInProgressColor.value = s.completion.inProgressColor || '#3b82f6';
           completionGlow.value = s.completion.glow;
           completionSpeed.value = s.completion.speed;
           scanAngle.value = s.completion.scanAngle || '180';
@@ -3570,7 +3618,7 @@ button.ctrl.clear-list-btn-red {
       saveData();
   });
 
-  [completionCheckedColor, completionUncheckedColor].forEach(el => {
+  [completionCheckedColor, completionUncheckedColor, completionInProgressColor].forEach(el => {
       const eventType = el.type === 'color' ? 'input' : 'change';
       el.addEventListener(eventType, () => {
           applyCompletionEffectSettings();
@@ -3886,6 +3934,9 @@ button.ctrl.clear-list-btn-red {
         renderList();
         renderTabs();
         renderWorkflowStages();
+
+        // Show/hide the 'In Progress' color setting
+        completionInProgressColorRow.style.display = currentList.type === 'Workflow' ? 'flex' : 'none';
     }
 
     function animateAndClearChecks() {
